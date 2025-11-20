@@ -72,4 +72,16 @@ class Client {
         }
         return list ?: emptyList()
     }
+
+    suspend fun saveTool(data: String): String {
+        val answer = withContext(Dispatchers.IO) {
+            mcp.callTool(
+                name = "save_to_file",
+                arguments = mapOf("data" to data),
+            )?.content?.map {
+                (it as? TextContent)?.text ?: ""
+            }
+        }
+        return answer?.getOrNull(0) ?: "что то не так"
+    }
 }

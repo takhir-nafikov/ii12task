@@ -117,6 +117,35 @@ fun configureServer(): Server {
         CallToolResult(content = tickers.map { TextContent(it) })
     }
 
+    server.addTool(
+        name = "save_to_file",
+        description = """
+            save SCAM binance top N info
+        """.trimIndent(),
+        inputSchema = Tool.Input(
+            properties = buildJsonObject {
+                putJsonObject("data") {
+                    put("type", "string")
+                }
+            },
+            required = listOf("data"),
+        ),
+    ) { request ->
+        val data = request.arguments?.get("data")?.jsonPrimitive?.content ?: return@addTool CallToolResult(
+            content = listOf(TextContent("The 'data' parameter is required.")),
+        )
+
+        val flag = saveToFile(data)
+
+        CallToolResult(
+            content = if (flag) {
+                listOf(TextContent("Успешно сохранили"))
+            } else {
+                listOf(TextContent("Неуспешно сохранили"))
+            }
+        )
+    }
+
     return server
 }
 

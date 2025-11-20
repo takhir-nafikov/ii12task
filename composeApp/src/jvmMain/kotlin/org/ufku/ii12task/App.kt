@@ -47,7 +47,10 @@ fun App() {
                     responseText = "Нет тикеров"
                 } else {
                     val res = zai.invokeRequest(tickers.joinToString(";"))
-                    responseText = res
+                    responseText = "сохраняем в файл"
+                    val saveRes = client.saveTool(res)
+                    responseText = saveRes
+
                 }
                 delay(20_000L)
             }
