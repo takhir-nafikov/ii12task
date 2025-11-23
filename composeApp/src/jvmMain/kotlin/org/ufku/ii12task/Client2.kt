@@ -56,7 +56,7 @@ class Client2 {
     suspend fun connect() {
         val transport = SseClientTransport(
             client = http,
-            urlString = "http://localhost:8080/server2",
+            urlString = "http://127.0.0.1:8080/server2",
             reconnectionTime = Duration.INFINITE
         )
         transport.start()
