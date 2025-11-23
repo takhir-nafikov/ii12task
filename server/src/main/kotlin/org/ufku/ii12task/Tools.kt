@@ -3,6 +3,10 @@ package org.ufku.ii12task
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.Serializable
 import java.io.File
 import java.text.SimpleDateFormat
@@ -42,6 +46,30 @@ fun saveToFile(data: String): Boolean {
     }
 }
 
+suspend fun readFromFile(): String = coroutineScope {
+    val dir = File("markdown_files")
+
+    require(dir.exists() && dir.isDirectory) { "Directory does not exist: markdown_files" }
+
+    val mdFiles = mutableListOf<File>()
+
+    // Обычный цикл для поиска .md файлов
+    for (file in dir.listFiles() ?: emptyArray()) {
+        if (file.isFile && file.extension.lowercase() == "md") {
+            mdFiles.add(file)
+        }
+    }
+
+    // Асинхронное чтение каждого файла
+    val deferredContents = mdFiles.map { file ->
+        async(Dispatchers.IO) {
+            file.readText()
+        }
+    }
+
+    // Ждём все чтения и объединяем строки
+    deferredContents.awaitAll().joinToString("\n")
+}
 
 @Serializable
 data class TickerInfo(

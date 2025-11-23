@@ -37,8 +37,30 @@ class Zai() {
         .content("Найди лучший тикер среди следующих - $text")
         .build()
 
+    private fun createUserMessage2(text: String) = ChatMessage.builder()
+        .role(ChatMessageRole.USER.value())
+        .content("Сделай выжимку по тикерам из этих ответов - $text")
+        .build()
+
     suspend fun invokeRequest(userText: String): String {
         val userMessage = createUserMessage(userText)
+
+        val request = createUserRequest(userMessage)
+        val response = withContext(Dispatchers.IO) {
+            zaiClient.chat().createChatCompletion(request)
+        }
+
+        return if (response.isSuccess) {
+            val text = (response.data.choices[0].message.content) as? String ?: ""
+
+            text
+        } else {
+            response.msg
+        }
+    }
+
+    suspend fun invokeRequest2(userText: String): String {
+        val userMessage = createUserMessage2(userText)
 
         val request = createUserRequest(userMessage)
         val response = withContext(Dispatchers.IO) {
@@ -58,8 +80,8 @@ class Zai() {
         return ChatCompletionCreateParams.builder()
             .model("glm-4.6")
             .messages(listOf(systemMessage, userMessage))
-            .temperature(0.2f)
-            .maxTokens(1024)
+            .temperature(0.5f)
+            .maxTokens(4096)
             .thinking(ChatThinking.builder().type(ChatThinkingType.DISABLED.value()).build())
             .build()
     }

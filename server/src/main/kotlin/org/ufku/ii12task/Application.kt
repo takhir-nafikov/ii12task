@@ -32,7 +32,32 @@ fun Application.module() {
         allowNonSimpleContentTypes = true
         anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
     }
-    mcp {
-        return@mcp configureServer()
+    install(SSE)
+
+    val s1 = configureServer()
+    val s2 = configureServer2()
+
+    routing {
+        get("/test") {
+            call.respondText("Server is running")
+        }
+
+        route("/server1") {
+            sse {
+                println("SSE connection established for server1")
+                val transport = SseServerTransport("/server1", this)
+                val session = s1.createSession(transport = transport)
+                println("Server1 session created")
+            }
+        }
+
+        route("/server2") {
+            sse {
+                println("SSE connection established for server2")
+                val transport2 = SseServerTransport("/server2", this)
+                val session2 = s2.createSession(transport = transport2)
+                println("Server2 session created")
+            }
+        }
     }
 }

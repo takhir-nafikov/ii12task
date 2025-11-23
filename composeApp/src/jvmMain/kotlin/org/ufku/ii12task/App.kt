@@ -35,14 +35,17 @@ import kotlinx.coroutines.launch
 fun App() {
     MaterialTheme {
         val client = Client()
+        val client2 = Client2()
         val zai = Zai()
         var responseText by remember { mutableStateOf("") }
 
         LaunchedEffect(Unit) {
             client.connect()
-            while (true) {
+//            client2.connect()
+
+            for(i in 0 until 3) {
                 responseText = "ждем ответ"
-                val tickers = client.callTool(20)
+                val tickers = client.callTool(10)
                 if (tickers.isNullOrEmpty()) {
                     responseText = "Нет тикеров"
                 } else {
@@ -50,11 +53,20 @@ fun App() {
                     responseText = "сохраняем в файл"
                     val saveRes = client.saveTool(res)
                     responseText = saveRes
-
                 }
-                delay(20_000L)
+                delay(5_000L)
+            }
+
+            responseText = "читаем все что есть"
+            val allData = client2.readTool()
+            responseText = if (allData.isNullOrEmpty()) {
+                "чет не прочли"
+            } else {
+                zai.invokeRequest2(allData)
             }
         }
+
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()

@@ -1,6 +1,5 @@
 package org.ufku.ii12task
 
-
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.HttpTimeout
@@ -20,8 +19,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration
 
-class Client {
-    private val mcp: Client = Client(clientInfo = Implementation(name = "mcp-client-cli", version = "1.0.0"))
+class Client2 {
+    private val mcp: Client = Client(clientInfo = Implementation(name = "mcp-client-cli2", version = "1.0.0"))
     val http = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(
@@ -57,29 +56,18 @@ class Client {
     suspend fun connect() {
         val transport = SseClientTransport(
             client = http,
-            urlString = "http://localhost:8080/server1",
+            urlString = "http://localhost:8080/server2",
             reconnectionTime = Duration.INFINITE
         )
+        transport.start()
         mcp.connect(transport)
     }
 
-    suspend fun callTool(count: Int = 0): List<String> {
-        val list = withContext(Dispatchers.IO) {
-            mcp.callTool(
-                name = "top_rated_ticker",
-                arguments = mapOf("count" to count),
-            )?.content?.map {
-                (it as? TextContent)?.text ?: ""
-            }
-        }
-        return list ?: emptyList()
-    }
-
-    suspend fun saveTool(data: String): String {
+    suspend fun readTool(): String {
         val answer = withContext(Dispatchers.IO) {
             mcp.callTool(
-                name = "save_to_file",
-                arguments = mapOf("data" to data),
+                name = "reader_md",
+                arguments = mapOf(),
             )?.content?.map {
                 (it as? TextContent)?.text ?: ""
             }
