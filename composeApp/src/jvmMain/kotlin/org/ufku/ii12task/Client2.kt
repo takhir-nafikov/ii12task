@@ -56,10 +56,8 @@ class Client2 {
     suspend fun connect() {
         val transport = SseClientTransport(
             client = http,
-            urlString = "http://127.0.0.1:8080/server2",
-            reconnectionTime = Duration.INFINITE
+            urlString = "http://127.0.0.1:3001/",
         )
-        transport.start()
         mcp.connect(transport)
     }
 

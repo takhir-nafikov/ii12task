@@ -9,6 +9,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.sse.*
 import io.modelcontextprotocol.kotlin.sdk.server.SseServerTransport
+import io.modelcontextprotocol.kotlin.sdk.server.mcp
 
 fun main() {
     embeddedServer(CIO, port = SERVER_PORT, host = "0.0.0.0", module = Application::module)
@@ -34,22 +35,8 @@ fun Application.module() {
             call.respondText("Server is running")
         }
 
-        route("/server1") {
-            sse {
-                println("SSE connection established for server1")
-                val transport = SseServerTransport("/server1", this)
-                val session = s1.createSession(transport = transport)
-                println("Server1 session created")
-            }
-        }
-
-        route("/server2") {
-            sse {
-                println("SSE connection established for server2")
-                val transport2 = SseServerTransport("/server2", this)
-                val session2 = s2.createSession(transport = transport2)
-                println("Server2 session created")
-            }
+        mcp {
+            return@mcp configureServer()
         }
     }
 }
