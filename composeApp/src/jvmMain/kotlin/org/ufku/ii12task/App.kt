@@ -16,35 +16,16 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 @Preview
 fun App() {
     MaterialTheme {
-        val client = Client()
-        val client2 = Client2()
-        val zai = Zai()
+        val ollama = OllamaClient()
         var responseText by remember { mutableStateOf("") }
 
         LaunchedEffect(Unit) {
-            client.connect()
-            client2.connect()
-
-            for(i in 0 until 3) {
-                responseText = "ждем ответ"
-                val tickers = client.callTool(10)
-                if (tickers.isNullOrEmpty()) {
-                    responseText = "Нет тикеров"
-                } else {
-                    val res = zai.invokeRequest(tickers.joinToString(";"))
-                    responseText = "сохраняем в файл"
-                    val saveRes = client.saveTool(res)
-                    responseText = saveRes
-                }
-                delay(5_000L)
-            }
-
-            responseText = "читаем все что есть"
-            val allData = client2.readTool()
-            responseText = if (allData.isNullOrEmpty()) {
-                "чет не прочли"
-            } else {
-                zai.invokeRequest2(allData)
+            val chunks = ollama.readChunkFromFolder()
+            chunks.forEach {
+                responseText = "получаем данные"
+                val array = ollama.embed(it)
+                responseText = "пишем данные"
+                ollama.writeEmbeddingToJsonFile(array)
             }
         }
 
