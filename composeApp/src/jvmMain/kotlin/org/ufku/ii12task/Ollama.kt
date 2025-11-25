@@ -26,6 +26,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
+import kotlin.math.sqrt
 
 
 class OllamaClient(): AutoCloseable {
@@ -56,12 +57,13 @@ class OllamaClient(): AutoCloseable {
         ignoreUnknownKeys = true
     }
 
-    suspend fun embed(chunkText: String): FloatArray = withContext(Dispatchers.IO) {
+    suspend fun embed(chunkText: String): Chunk = withContext(Dispatchers.IO) {
         val response: OllamaEmbeddingsResponse = httpClient.post("http://localhost:11434/api/embeddings") {
             contentType(ContentType.Application.Json)
             setBody(OllamaEmbeddingsRequest(prompt = chunkText))
         }.body()
-        response.embedding.map { it.toFloat() }.toFloatArray()
+        val em = response.embedding.map { it.toFloat() }.toFloatArray()
+        Chunk(chunkText, em)
     }
 
     override fun close() {
@@ -69,7 +71,7 @@ class OllamaClient(): AutoCloseable {
     }
 
     suspend fun writeEmbeddingToJsonFile(
-        array: FloatArray
+        chunk: Chunk
     ) = withContext(Dispatchers.IO) {
         val file = File("embed.json")
         // Если файл не существует — создаём его с пустым JSON-массивом
@@ -79,10 +81,12 @@ class OllamaClient(): AutoCloseable {
         }
 
         // Загружаем уже существующие данные
-        val existingList = json.decodeFromString<MutableList<EmbeddingWrapper>>(file.readText())
+        val existingList = json.decodeFromString<MutableList<Chunk>>(file.readText())
+
+        val ne = normalizeTo01(chunk.embedding.toList()).toFloatArray()
 
         // Добавляем новое значение
-        existingList.add(EmbeddingWrapper(array.toList()))
+        existingList.add(chunk.copy(embedding = ne))
 
         // Сохраняем обратно
         file.writeText(json.encodeToString(existingList))
@@ -112,8 +116,8 @@ class OllamaClient(): AutoCloseable {
         // Ждём все чтения и объединяем строки
         val text = deferredContents.awaitAll().joinToString("\n")
 
-        val chunkSize: Int = 100
-        val overlap: Int = 15
+        val chunkSize: Int = 200
+        val overlap: Int = 25
 
         val result = mutableListOf<String>()
         var start = 0
@@ -137,7 +141,81 @@ class OllamaClient(): AutoCloseable {
 
         result
     }
+
+    fun normalizeTo01(embedding: List<Float>): List<Float> {
+        if (embedding.isEmpty()) {
+            return emptyList()
+        }
+
+        val dimension = embedding.size
+        return embedding.map { it / dimension }
+    }
+
+    suspend fun readTopKChunksFromJson(
+        queryEmbedding: FloatArray,
+        k: Int = 5
+    ): List<String> = withContext(Dispatchers.IO) {
+        val file = File("embed.json")
+        if (!file.exists()) {
+            return@withContext emptyList()
+        }
+
+        // Читаем все сохранённые чанки
+        val chunks = json.decodeFromString<List<Chunk>>(file.readText())
+
+        if (chunks.isEmpty()) {
+            return@withContext emptyList()
+        }
+
+        // Нормализуем embedding запроса так же, как и при записи
+        val normalizedQuery = normalizeTo01(queryEmbedding.toList())
+
+        // Считаем сходство с каждым чанкoм
+        val scored = chunks.map { chunk ->
+            val score = calculateSimilarity(normalizedQuery, chunk.embedding.toList())
+            chunk to score
+        }
+
+        // Сортируем по убыванию сходства и берём топ-k
+        scored
+            .sortedByDescending { it.second }
+            .take(k)
+            .map { it.first }
+            .map { it.text }
+
+    }
+
+    fun calculateSimilarity(
+        vector1: List<Float>,
+        vector2: List<Float>
+    ): Float {
+        require(vector1.size == vector2.size) {
+            "Vectors must have the same size. Got ${vector1.size} and ${vector2.size}"
+        }
+
+        if (vector1.isEmpty()) {
+            return 0f
+        }
+
+        // Скалярное произведение (dot product)
+        val dotProduct = vector1.zip(vector2).sumOf { (a, b) ->
+            a.toDouble() * b.toDouble()
+        }
+
+        // Длины векторов (L2 норма)
+        val magnitude1 = sqrt(vector1.sumOf { it.toDouble() * it.toDouble() })
+        val magnitude2 = sqrt(vector2.sumOf { it.toDouble() * it.toDouble() })
+
+        // Если один из векторов нулевой, возвращаем 0
+        if (magnitude1 == 0.0 || magnitude2 == 0.0) {
+            return 0f
+        }
+
+        // Косинусное сходство
+        return (dotProduct / (magnitude1 * magnitude2)).toFloat()
+    }
 }
+
 
 @Serializable
 data class OllamaEmbeddingsRequest(
@@ -153,6 +231,7 @@ data class OllamaEmbeddingsResponse(
 )
 
 @Serializable
-data class EmbeddingWrapper(
-    val embedding: List<Float>
+data class Chunk(
+    val text: String,         // сам текст чанка
+    val embedding: FloatArray // вектор-embedding
 )

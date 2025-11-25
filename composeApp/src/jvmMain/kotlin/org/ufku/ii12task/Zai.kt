@@ -32,18 +32,32 @@ class Zai() {
         .content("Ты опытный пользователь binance и даешь советы новичкам")
         .build()
 
-    private fun createUserMessage(text: String) = ChatMessage.builder()
+    private fun createUserMessage() = ChatMessage.builder()
         .role(ChatMessageRole.USER.value())
-        .content("Найди лучший тикер среди следующих - $text")
+        .content("Найди лучший тикер среди следующих на binance")
         .build()
 
-    private fun createUserMessage2(text: String) = ChatMessage.builder()
-        .role(ChatMessageRole.USER.value())
-        .content("Сделай выжимку по тикерам из этих ответов - $text")
-        .build()
+    private fun createUserMessageRag(contextTexts: List<String>): ChatMessage {
+        val contextBlock = contextTexts.mapIndexed { index, text ->
+            "[${index + 1}] $text"
+        }.joinToString("\n\n")
 
-    suspend fun invokeRequest(userText: String): String {
-        val userMessage = createUserMessage(userText)
+        val prompt = buildString {
+            append("Контекст:\n\n")
+            append(contextBlock)
+            append("\n\nИспользуя только этот контекст, ответь на вопрос: \"")
+            append("Найди лучший тикер среди следующих на binance")
+            append("\"")
+        }
+
+        return ChatMessage.builder()
+            .role(ChatMessageRole.USER.value())
+            .content(prompt)
+            .build()
+    }
+
+    suspend fun invokeRequest(): String {
+        val userMessage = createUserMessage()
 
         val request = createUserRequest(userMessage)
         val response = withContext(Dispatchers.IO) {
@@ -59,8 +73,8 @@ class Zai() {
         }
     }
 
-    suspend fun invokeRequest2(userText: String): String {
-        val userMessage = createUserMessage2(userText)
+    suspend fun invokeRequestRag(data: List<String>): String {
+        val userMessage = createUserMessageRag(data)
 
         val request = createUserRequest(userMessage)
         val response = withContext(Dispatchers.IO) {
