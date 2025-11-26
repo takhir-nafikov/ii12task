@@ -56,23 +56,6 @@ class Zai() {
             .build()
     }
 
-    suspend fun invokeRequest(): String {
-        val userMessage = createUserMessage()
-
-        val request = createUserRequest(userMessage)
-        val response = withContext(Dispatchers.IO) {
-            zaiClient.chat().createChatCompletion(request)
-        }
-
-        return if (response.isSuccess) {
-            val text = (response.data.choices[0].message.content) as? String ?: ""
-
-            text
-        } else {
-            response.msg
-        }
-    }
-
     suspend fun invokeRequestRag(data: List<String>): String {
         val userMessage = createUserMessageRag(data)
 

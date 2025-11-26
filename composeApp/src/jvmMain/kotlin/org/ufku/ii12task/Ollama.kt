@@ -153,6 +153,7 @@ class OllamaClient(): AutoCloseable {
 
     suspend fun readTopKChunksFromJson(
         queryEmbedding: FloatArray,
+        needSort: Boolean = false,
         k: Int = 5
     ): List<String> = withContext(Dispatchers.IO) {
         val file = File("embed.json")
@@ -176,13 +177,19 @@ class OllamaClient(): AutoCloseable {
             chunk to score
         }
 
-        // Сортируем по убыванию сходства и берём топ-k
-        scored
-            .sortedByDescending { it.second }
+        val result = if (needSort) {
+            // сортируем по убыванию сходства
+            scored.sortedByDescending { it.second }
+        } else {
+            // НЕ сортируем, оставляем исходный порядок
+            scored
+        }
+
+        // Берём top-k после выбора стратегии сортировки
+        result
             .take(k)
             .map { it.first }
             .map { it.text }
-
     }
 
     fun calculateSimilarity(
