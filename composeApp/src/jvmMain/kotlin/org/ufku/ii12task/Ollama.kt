@@ -66,6 +66,15 @@ class OllamaClient(): AutoCloseable {
         Chunk(chunkText, em)
     }
 
+    suspend fun embed(fileChunk: FileChunk): Chunk = withContext(Dispatchers.IO) {
+        val response: OllamaEmbeddingsResponse = httpClient.post("http://localhost:11434/api/embeddings") {
+            contentType(ContentType.Application.Json)
+            setBody(OllamaEmbeddingsRequest(prompt = fileChunk.chunk))
+        }.body()
+        val em = response.embedding.map { it.toFloat() }.toFloatArray()
+        Chunk(fileChunk.chunk, em, fileChunk.fileName)
+    }
+
     override fun close() {
         httpClient.close()
     }
@@ -92,54 +101,61 @@ class OllamaClient(): AutoCloseable {
         file.writeText(json.encodeToString(existingList))
     }
 
-    suspend fun readChunkFromFolder(): List<String> = coroutineScope {
+    data class FileChunk(
+        val fileName: String,
+        val chunk: String
+    )
+
+    suspend fun readChunksFromFolder(): List<FileChunk> = coroutineScope {
         val dir = File("F:\\Repos\\ii12task\\markdown_files")
 
         require(dir.exists() && dir.isDirectory) { "Directory does not exist: markdown_files" }
 
-        val mdFiles = mutableListOf<File>()
+        // Находим все .md файлы
+        val mdFiles = dir.listFiles()
+            ?.filter { it.isFile && it.extension.equals("md", ignoreCase = true) }
+            ?: emptyList()
 
-        // Обычный цикл для поиска .md файлов
-        for (file in dir.listFiles() ?: emptyArray()) {
-            if (file.isFile && file.extension.lowercase() == "md") {
-                mdFiles.add(file)
-            }
-        }
+        val chunkSize = 200
+        val overlap = 25
 
-        // Асинхронное чтение каждого файла
-        val deferredContents = mdFiles.map { file ->
+        // Асинхронно читаем КАЖДЫЙ файл и режем его на чанки отдельно
+        val deferredChunksPerFile = mdFiles.map { file ->
             async(Dispatchers.IO) {
-                file.readText()
+                val text = file.readText()
+
+                val chunks = mutableListOf<FileChunk>()
+                var start = 0
+
+                while (start < text.length) {
+                    val end = (start + chunkSize).coerceAtMost(text.length)
+
+                    val core = text.substring(start, end)
+
+                    val prefixStart = (start - overlap).coerceAtLeast(0)
+                    val prefix = text.substring(prefixStart, start)
+
+                    val suffixEnd = (end + overlap).coerceAtMost(text.length)
+                    val suffix = text.substring(end, suffixEnd)
+
+                    val chunkWithContext = prefix + core + suffix
+
+                    chunks.add(
+                        FileChunk(
+                            fileName = file.name,
+                            chunk = chunkWithContext
+                        )
+                    )
+
+                    start += chunkSize
+                }
+
+                chunks
             }
         }
 
-        // Ждём все чтения и объединяем строки
-        val text = deferredContents.awaitAll().joinToString("\n")
-
-        val chunkSize: Int = 200
-        val overlap: Int = 25
-
-        val result = mutableListOf<String>()
-        var start = 0
-
-        while (start < text.length) {
-            val end = (start + chunkSize).coerceAtMost(text.length)
-
-            // Основная часть
-            val core = text.substring(start, end)
-
-            // Добавляем overlap с предыдущим и следующим блоком
-            val prefixStart = (start - overlap).coerceAtLeast(0)
-            val prefix = text.substring(prefixStart, start)
-
-            val suffixEnd = (end + overlap).coerceAtMost(text.length)
-            val suffix = text.substring(end, suffixEnd)
-
-            result.add(prefix + core + suffix)
-            start += chunkSize
-        }
-
-        result
+        // Собираем чанки со всех файлов в один список
+        deferredChunksPerFile.awaitAll().flatten()
     }
 
     fun normalizeTo01(embedding: List<Float>): List<Float> {
@@ -155,7 +171,7 @@ class OllamaClient(): AutoCloseable {
         queryEmbedding: FloatArray,
         needSort: Boolean = false,
         k: Int = 5
-    ): List<String> = withContext(Dispatchers.IO) {
+    ): List<Chunk> = withContext(Dispatchers.IO) {
         val file = File("embed.json")
         if (!file.exists()) {
             return@withContext emptyList()
@@ -189,7 +205,6 @@ class OllamaClient(): AutoCloseable {
         result
             .take(k)
             .map { it.first }
-            .map { it.text }
     }
 
     fun calculateSimilarity(
@@ -240,5 +255,6 @@ data class OllamaEmbeddingsResponse(
 @Serializable
 data class Chunk(
     val text: String,         // сам текст чанка
-    val embedding: FloatArray // вектор-embedding
+    val embedding: FloatArray, // вектор-embedding
+    val fileName: String = ""
 )

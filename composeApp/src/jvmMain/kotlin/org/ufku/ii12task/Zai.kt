@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import io.github.cdimascio.dotenv.dotenv
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.ufku.ii12task.Chunk
 import java.util.concurrent.TimeUnit
 
 class Zai() {
@@ -37,17 +38,17 @@ class Zai() {
         .content("Найди лучший тикер среди следующих на binance")
         .build()
 
-    private fun createUserMessageRag(contextTexts: List<String>): ChatMessage {
-        val contextBlock = contextTexts.mapIndexed { index, text ->
-            "[${index + 1}] $text"
+    private fun createUserMessageRag(chunks: List<Chunk>): ChatMessage {
+        val contextBlock = chunks.mapIndexed { index, chunk ->
+            "[${index + 1}] (file: ${chunk.fileName})\n${chunk.text}"
         }.joinToString("\n\n")
 
         val prompt = buildString {
             append("Контекст:\n\n")
             append(contextBlock)
-            append("\n\nИспользуя только этот контекст, ответь на вопрос: \"")
-            append("Найди лучший тикер среди следующих на binance")
-            append("\"")
+            append(
+                "\n\nИспользуя только этот контекст ответь на вопрос: Какой тикер лучше из предложенных, обязательно укажи название файла откуда взял информацию"
+            )
         }
 
         return ChatMessage.builder()
@@ -56,8 +57,8 @@ class Zai() {
             .build()
     }
 
-    suspend fun invokeRequestRag(data: List<String>): String {
-        val userMessage = createUserMessageRag(data)
+    suspend fun invokeRequestRag(chunks: List<Chunk>): String {
+        val userMessage = createUserMessageRag(chunks)
 
         val request = createUserRequest(userMessage)
         val response = withContext(Dispatchers.IO) {

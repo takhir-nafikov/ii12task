@@ -22,15 +22,18 @@ fun App() {
         var responseText by remember { mutableStateOf("") }
 
         LaunchedEffect(Unit) {
-            val rch = ollama.embed("Найди лучший тикер среди следующих на binance")
+            responseText = "читаем"
+            val ch = ollama.readChunksFromFolder()
+            responseText = "начинаем запись"
+            ch.forEach {
+                val ar = ollama.embed(it)
+                ollama.writeEmbeddingToJsonFile(Chunk(text = it.chunk, embedding = ar.embedding, fileName = it.fileName))
+            }
+            responseText = "закончили запись"
+            val rch = ollama.embed("Найди лучший вариант тикера среди следующих")
 
-            val list1 = ollama.readTopKChunksFromJson(rch.embedding, false)
-            responseText = "отправка простого запроса без фильтра"
-            responseText = zai.invokeRequestRag(list1)
-            delay(10000)
-
-            responseText = "отправка с фильтром"
             val list = ollama.readTopKChunksFromJson(rch.embedding)
+            responseText = "отправка запроса"
             responseText = zai.invokeRequestRag(list)
         }
 
