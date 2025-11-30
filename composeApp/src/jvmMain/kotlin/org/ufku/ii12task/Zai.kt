@@ -14,6 +14,7 @@ import io.github.cdimascio.dotenv.dotenv
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.ufku.ii12task.Chunk
+import org.ufku.ii12task.Tools.saveToFile
 import java.util.concurrent.TimeUnit
 
 class Zai() {
@@ -33,9 +34,9 @@ class Zai() {
         .content("Ты опытный пользователь binance и даешь советы новичкам")
         .build()
 
-    private fun createUserMessage() = ChatMessage.builder()
+    private fun createUserMessage(tickers: List<String>) = ChatMessage.builder()
         .role(ChatMessageRole.USER.value())
-        .content("Найди лучший тикер среди следующих на binance")
+        .content("Дай характеристики этим тикерам")
         .build()
 
     private fun createUserMessageRag(chunks: List<Chunk>): ChatMessage {
@@ -57,6 +58,27 @@ class Zai() {
             .build()
     }
 
+    suspend fun invokeRequest(tickers: List<String>): String {
+        val userMessage = createUserMessage(tickers)
+
+        val request = createUserRequest(userMessage)
+        val response = withContext(Dispatchers.IO) {
+            zaiClient.chat().createChatCompletion(request)
+        }
+
+        return if (response.isSuccess) {
+            val text = (response.data.choices[0].message.content) as? String ?: ""
+            val save = saveToFile(text)
+            if (save) {
+                "все ок сохранили"
+            } else {
+                "не сохранили"
+            }
+
+        } else {
+            response.msg
+        }
+    }
     suspend fun invokeRequestRag(chunks: List<Chunk>): String {
         val userMessage = createUserMessageRag(chunks)
 

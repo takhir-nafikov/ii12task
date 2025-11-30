@@ -107,7 +107,7 @@ class OllamaClient(): AutoCloseable {
     )
 
     suspend fun readChunksFromFolder(): List<FileChunk> = coroutineScope {
-        val dir = File("F:\\Repos\\ii12task\\markdown_files")
+        val dir = File("F:\\Repos\\ii12task\\composeApp\\markdown_files")
 
         require(dir.exists() && dir.isDirectory) { "Directory does not exist: markdown_files" }
 
@@ -116,8 +116,8 @@ class OllamaClient(): AutoCloseable {
             ?.filter { it.isFile && it.extension.equals("md", ignoreCase = true) }
             ?: emptyList()
 
-        val chunkSize = 200
-        val overlap = 25
+        val chunkSize = 500
+        val overlap = 50
 
         // Асинхронно читаем КАЖДЫЙ файл и режем его на чанки отдельно
         val deferredChunksPerFile = mdFiles.map { file ->
@@ -169,8 +169,8 @@ class OllamaClient(): AutoCloseable {
 
     suspend fun readTopKChunksFromJson(
         queryEmbedding: FloatArray,
-        needSort: Boolean = false,
-        k: Int = 5
+        needSort: Boolean = true,
+        k: Int = 10
     ): List<Chunk> = withContext(Dispatchers.IO) {
         val file = File("embed.json")
         if (!file.exists()) {

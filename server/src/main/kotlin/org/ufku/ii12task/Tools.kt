@@ -13,6 +13,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+var count = 0
 suspend fun HttpClient.getTickers(count: Int): List<String> {
     val uri = "/api/v3/ticker/24hr"
     // Request the alerts data from the API
@@ -31,10 +32,9 @@ fun saveToFile(data: String): Boolean {
             folder.mkdirs()
         }
 
-        // Генерируем уникальное имя файла
-        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault())
-            .format(Date())
-        val file = File(folder, "note_$timestamp.md")
+
+        val file = File(folder, "note_$count.md")
+        count++
 
         // Записываем текст
         file.writeText(data)
